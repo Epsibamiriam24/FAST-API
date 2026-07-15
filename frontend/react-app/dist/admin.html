@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library Admin Dashboard</title>
+
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+
+<div class="dashboard">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+
+        <h2>📚 Library Admin</h2>
+
+        <ul>
+            <li><a href="#">🏠 Dashboard</a></li>
+            <li><a href="#">📚 Books</a></li>
+            <li><a href="#">👤 Members</a></li>
+            <li><a href="#">📖 Borrow Records</a></li>
+            <li><a href="#">⚙ Settings</a></li>
+            <li><a href="/login.html">🚪 Logout</a></li>
+        </ul>
+
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <h1>Dashboard</h1>
+
+        <!-- Statistics -->
+        <div class="cards">
+
+            <div class="card">
+                <h3>Total Books</h3>
+                <p>120</p>
+            </div>
+
+            <div class="card">
+                <h3>Members</h3>
+                <p>45</p>
+            </div>
+
+            <div class="card">
+                <h3>Books Borrowed</h3>
+                <p>18</p>
+            </div>
+
+            <div class="card">
+                <h3>Books Available</h3>
+                <p>102</p>
+            </div>
+
+        </div>
+
+        <button class="add-btn">+ Add Book</button>
+
+        <h2>Book Management</h2>
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>ID</th>
+                    <th>Book Name</th>
+                    <th>Author</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                <tr>
+                    <td>1</td>
+                    <td>Python Programming</td>
+                    <td>John Smith</td>
+                    <td>Available</td>
+                    <td>
+                        <button>Edit</button>
+                        <button class="delete-btn">Delete</button>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>2</td>
+                    <td>Java Fundamentals</td>
+                    <td>David Lee</td>
+                    <td>Borrowed</td>
+                    <td>
+                        <button>Edit</button>
+                        <button class="delete-btn">Delete</button>
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>3</td>
+                    <td>Web Development</td>
+                    <td>Robert Brown</td>
+                    <td>Available</td>
+                    <td>
+                        <button>Edit</button>
+                        <button class="delete-btn">Delete</button>
+                    </td>
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </main>
+
+</div>
+
+</body>
+</html>
