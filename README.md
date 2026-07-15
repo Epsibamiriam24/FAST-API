@@ -194,3 +194,6 @@ Client–Server Architecture
 Request–Response Lifecycle
 Virtual Environment Management
 API Testing and Debugging
+
+RUN FRONT-END: CD frontend\react-app> npm run dev
+RUN BACK-END: CD services\node-api> npm start
