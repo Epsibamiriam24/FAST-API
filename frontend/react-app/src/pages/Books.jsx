@@ -9,6 +9,9 @@ export default function Books(){
   const [title,setTitle] = useState('')
   const [author,setAuthor] = useState('')
   const [query,setQuery] = useState('')
+  const [editingId,setEditingId] = useState(null)
+  const [editTitle,setEditTitle] = useState('')
+  const [editAuthor,setEditAuthor] = useState('')
   const { user } = useAuth()
 
   useEffect(()=>{
@@ -52,6 +55,37 @@ export default function Books(){
     }catch(e){ alert('Delete failed') }
   }
 
+  const beginEdit = (book) => {
+    setEditingId(book.id)
+    setEditTitle(book.title)
+    setEditAuthor(book.author)
+    setError('')
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditTitle('')
+    setEditAuthor('')
+  }
+
+  const saveEdit = async (id) => {
+    const nextTitle = editTitle.trim()
+    const nextAuthor = editAuthor.trim()
+    if(!nextTitle || !nextAuthor) {
+      setError('Title and author are required')
+      return
+    }
+
+    try{
+      setError('')
+      const r = await api.put(`/api/books/${id}`, { title: nextTitle, author: nextAuthor })
+      setBooks(prev => prev.map(book => (book.id === id ? r.data : book)))
+      cancelEdit()
+    }catch(e){
+      alert('Update failed: ' + (e.response?.data?.error || e.message))
+    }
+  }
+
   return (
     <div className="page-stack">
       <section className="section-heading">
@@ -80,12 +114,26 @@ export default function Books(){
           .map(b=> (
           <article className="book-card book-card-large" key={b.id}>
             <p className="book-tag">{b.available ? 'Available' : 'Borrowed'}</p>
-            <h3>{b.title}</h3>
-            <p>{b.author}</p>
-            {user && (
-              <div className="card-actions">
-                <button className="btn btn-danger" onClick={()=>deleteBook(b.id)}>Delete</button>
+            {editingId === b.id ? (
+              <div className="form-grid">
+                <input className="text-input" value={editTitle} onChange={e=>setEditTitle(e.target.value)} />
+                <input className="text-input" value={editAuthor} onChange={e=>setEditAuthor(e.target.value)} />
+                <div className="card-actions">
+                  <button className="btn btn-primary" onClick={()=>saveEdit(b.id)}>Save</button>
+                  <button className="btn btn-secondary" onClick={cancelEdit}>Cancel</button>
+                </div>
               </div>
+            ) : (
+              <>
+                <h3>{b.title}</h3>
+                <p>{b.author}</p>
+                {user && (
+                  <div className="card-actions">
+                    <button className="btn btn-secondary" onClick={()=>beginEdit(b)}>Edit</button>
+                    <button className="btn btn-danger" onClick={()=>deleteBook(b.id)}>Delete</button>
+                  </div>
+                )}
+              </>
             )}
           </article>
         ))}

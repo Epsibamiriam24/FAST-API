@@ -13,51 +13,123 @@ const { pool } = require('./db')
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 
-app.get('/api/books', (req, res) => {
-  res.json(books)
+async function initDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS books (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      author VARCHAR(255) NOT NULL,
+      available TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )
+  `)
+
+  const [rows] = await pool.query('SELECT COUNT(*) AS total FROM books')
+  if (rows[0].total === 0) {
+    const seedBooks = [
+      ['Python Programming', 'John Smith'],
+      ['Java Fundamentals', 'David Lee'],
+      ['Clean Code', 'Robert C. Martin'],
+      ['The Pragmatic Programmer', 'Andrew Hunt'],
+      ['JavaScript: The Good Parts', 'Douglas Crockford'],
+      ['Designing Data-Intensive Applications', 'Martin Kleppmann'],
+      ['Refactoring', 'Martin Fowler'],
+      ['Introduction to Algorithms', 'Thomas H. Cormen']
+    ]
+
+    for (const [title, author] of seedBooks) {
+      await pool.query('INSERT INTO books (title, author, available) VALUES (?, ?, 1)', [title, author])
+    }
+  }
+}
+
+function toBook(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    author: row.author,
+    available: !!row.available,
+  }
+}
+
+app.get('/api/books', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT id, title, author, available FROM books ORDER BY id DESC')
+    res.json(rows.map(toBook))
+  } catch (err) {
+    console.error('/api/books error', err)
+    res.status(500).json({ error: 'internal error' })
+  }
 })
 
-// In-memory books store
-const books = [
-  { id: 1, title: 'Python Programming', author: 'John Smith', available: true },
-  { id: 2, title: 'Java Fundamentals', author: 'David Lee', available: true },
-  { id: 3, title: 'Clean Code', author: 'Robert C. Martin', available: true },
-  { id: 4, title: 'The Pragmatic Programmer', author: 'Andrew Hunt', available: true },
-  { id: 5, title: 'JavaScript: The Good Parts', author: 'Douglas Crockford', available: true },
-  { id: 6, title: 'Designing Data-Intensive Applications', author: 'Martin Kleppmann', available: true },
-  { id: 7, title: 'Refactoring', author: 'Martin Fowler', available: true },
-  { id: 8, title: 'Introduction to Algorithms', author: 'Thomas H. Cormen', available: true }
-]
-
 // Create book
-app.post('/api/books', authMiddleware, (req, res) => {
+app.post('/api/books', authMiddleware, async (req, res) => {
   const { title, author } = req.body || {}
   if (!title || !author) return res.status(400).json({ error: 'title and author required' })
-  const id = books.length ? Math.max(...books.map(b=>b.id)) + 1 : 1
-  const book = { id, title, author, available: true }
-  books.push(book)
-  res.status(201).json(book)
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO books (title, author, available) VALUES (?, ?, 1)',
+      [title.trim(), author.trim()]
+    )
+    const [rows] = await pool.query('SELECT id, title, author, available FROM books WHERE id = ? LIMIT 1', [result.insertId])
+    res.status(201).json(toBook(rows[0]))
+  } catch (err) {
+    console.error('create book error', err)
+    res.status(500).json({ error: 'internal error' })
+  }
 })
 
 // Update book
-app.put('/api/books/:id', authMiddleware, (req, res) => {
+app.put('/api/books/:id', authMiddleware, async (req, res) => {
   const id = parseInt(req.params.id,10)
-  const book = books.find(b => b.id === id)
-  if (!book) return res.status(404).json({ error: 'book not found' })
   const { title, author, available } = req.body || {}
-  if (title !== undefined) book.title = title
-  if (author !== undefined) book.author = author
-  if (available !== undefined) book.available = !!available
-  res.json(book)
+  if (Number.isNaN(id)) return res.status(400).json({ error: 'invalid book id' })
+  try {
+    const [existing] = await pool.query('SELECT id FROM books WHERE id = ? LIMIT 1', [id])
+    if (!existing.length) return res.status(404).json({ error: 'book not found' })
+
+    const fields = []
+    const values = []
+
+    if (title !== undefined) {
+      fields.push('title = ?')
+      values.push(title.trim())
+    }
+    if (author !== undefined) {
+      fields.push('author = ?')
+      values.push(author.trim())
+    }
+    if (available !== undefined) {
+      fields.push('available = ?')
+      values.push(available ? 1 : 0)
+    }
+
+    if (!fields.length) return res.status(400).json({ error: 'no fields to update' })
+
+    values.push(id)
+    await pool.query(`UPDATE books SET ${fields.join(', ')} WHERE id = ?`, values)
+    const [rows] = await pool.query('SELECT id, title, author, available FROM books WHERE id = ? LIMIT 1', [id])
+    res.json(toBook(rows[0]))
+  } catch (err) {
+    console.error('update book error', err)
+    res.status(500).json({ error: 'internal error' })
+  }
 })
 
 // Delete book
-app.delete('/api/books/:id', authMiddleware, (req, res) => {
+app.delete('/api/books/:id', authMiddleware, async (req, res) => {
   const id = parseInt(req.params.id,10)
-  const idx = books.findIndex(b => b.id === id)
-  if (idx === -1) return res.status(404).json({ error: 'book not found' })
-  const [deleted] = books.splice(idx,1)
-  res.json(deleted)
+  if (Number.isNaN(id)) return res.status(400).json({ error: 'invalid book id' })
+  try {
+    const [existing] = await pool.query('SELECT id, title, author, available FROM books WHERE id = ? LIMIT 1', [id])
+    if (!existing.length) return res.status(404).json({ error: 'book not found' })
+    await pool.query('DELETE FROM books WHERE id = ?', [id])
+    res.json(toBook(existing[0]))
+  } catch (err) {
+    console.error('delete book error', err)
+    res.status(500).json({ error: 'internal error' })
+  }
 })
 
 // Register - persist user to MySQL and return JWT
@@ -138,4 +210,11 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 const port = process.env.PORT || 5000
-app.listen(port, () => console.log('Node API listening on', port))
+initDatabase()
+  .then(() => {
+    app.listen(port, () => console.log('Node API listening on', port))
+  })
+  .catch(err => {
+    console.error('database init error', err)
+    process.exit(1)
+  })
